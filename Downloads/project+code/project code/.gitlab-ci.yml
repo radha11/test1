@@ -1,0 +1,61 @@
+stages:
+  - test
+  - build
+  - deploy staging
+  - automated testing
+  - deploy production
+
+variables:
+  IMAGE_TAG: $CI_REGISTRY_IMAGE/employee-image:$CI_COMMIT_REF_SLUG
+  STAGING_APP: emp-portal-staging
+  PRODUCTION_APP: emp-portal-production
+  HEROKU_STAGING: "registry.heroku.com/$STAGING_APP/web"
+  HEROKU_PRODUCTION: "registry.heroku.com/$PRODUCTION_APP/web"
+
+lint_test:
+  image: python:3.8.0-slim
+  stage: test
+  before_script:
+    - pip install flake8-html
+  script:
+    - flake8 --format=html --htmldir=flake_reports/
+  artifacts:
+    when: always
+    paths:
+      - flake_reports/
+
+pytest:
+  image: python:3.8.0-slim
+  stage: test
+  before_script:
+    - pip install pytest-html
+    - pip install -r requirements.txt
+  script:
+    - pytest --html=pytest_reports/pytest-report.html --self-contained-html
+  artifacts:
+    when: always
+    paths:
+      - pytest_reports/
+
+build:
+  image: docker:latest
+  services:
+    - docker:dind
+  stage: build
+  script:
+    - docker login weconnectregistry.azurecr.io -u $AZ_CLIENT_ID -p $AZ_CLIENT_SECRET
+    - docker build -t weconnectregistry.azurecr.io/employee-app:verify .
+    - docker images
+    - docker push weconnectregistry.azurecr.io/employee-app:verify\
+    
+deploy_stage:
+  stage: deploy
+  image: mcr.microsoft.com/azure-cli
+  script:
+    - az aks install-cli
+    - kubectl version --client
+    - az login --service-principal -u $AZ_CLIENT_ID -p $AZ_CLIENT_SECRET --tenant $AZ_TENANT_ID
+    - az aks get-credentials --resource-group aks-rg --name weconnect-aks
+    - pwd
+    - kubectl apply -f k8s/
+    - kubectl get pods

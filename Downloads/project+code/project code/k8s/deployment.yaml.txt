@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: employee-app-deployment
+  labels: 
+    app: employee-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: employee-app
+  template:
+    metadata:
+      labels:
+        app: employee-app
+    spec:
+      containers:
+      - name: employee-app-conatiner
+        image: weconnectregistry.azurecr.io/employee-app:verify
+        imagePullPolicy: Always
+        command: ["sleep", "infinity"]
+        ports:
+        - containerPort: 8080
